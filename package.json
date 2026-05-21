@@ -1,0 +1,41 @@
+{
+  "name": "@voidrot/openai-featherless-compatible",
+  "version": "0.1.0",
+  "description": "An OpenAI-compatible provider wrapper with Featherless-compatible fallback parsing for text-emitted tool calls",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/voidrot/oc-hermes-style"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.36",
+    "@ai-sdk/provider": "^3.0.10",
+    "@ai-sdk/provider-utils": "^4.0.27"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
