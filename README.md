@@ -26,22 +26,16 @@ Example `opencode.json`:
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "moonshot-featherless": {
+    "featherless-ai": {
       "npm": "@voidrot/openai-featherless-compatible",
-      "name": "Moonshot AI (Featherless fallback)",
+      "name": "Featherless AI",
       "options": {
-        "baseURL": "https://api.moonshot.ai/v1",
-        "apiKey": "{env:MOONSHOT_API_KEY}",
+        "baseURL": "https://api.featherless.ai/v1",
+        "apiKey": "{env:FEATHERLESS_API_KEY}",
         "toolCallFallback": "auto"
       },
       "models": {
-        "kimi-k2": {
-          "name": "Kimi K2",
-          "limit": {
-            "context": 128000,
-            "output": 65536
-          }
-        }
+        ...
       }
     }
   }
@@ -58,9 +52,9 @@ Swap `baseURL`, `apiKey`, and model IDs for any OpenAI-compatible endpoint you w
 import { createFeatherlessCompatibleProvider } from '@voidrot/openai-featherless-compatible';
 
 const provider = createFeatherlessCompatibleProvider({
-  name: 'moonshot-featherless',
-  baseURL: 'https://api.moonshot.ai/v1',
-  apiKey: process.env.MOONSHOT_API_KEY,
+  name: 'featherless-ai',
+  baseURL: 'https://api.featherless.ai/v1',
+  apiKey: process.env.FEATHERLESS_API_KEY,
   toolCallFallback: 'auto',
 });
 
