@@ -67,6 +67,8 @@ const MINIMAX_OPEN = "<minimax:tool_call>";
 const MINIMAX_CLOSE = "</minimax:tool_call>";
 const DSML_OPEN = "<dsml:tool_call>";
 const DSML_CLOSE = "</dsml:tool_call>";
+const DSML_ALT_OPEN = "<｜｜DSML｜｜tool_calls>";
+const DSML_ALT_CLOSE = "</｜｜DSML｜｜tool_calls>";
 const KIMI_OPEN = "<|tool_calls_section_begin|>";
 const KIMI_CLOSE = "<|tool_calls_section_end|>";
 const DEEPSEEK_V3_OPEN = "<｜tool▁calls▁begin｜>";
@@ -403,7 +405,7 @@ function parseParameterTags(
   let found = false;
 
   for (const match of content.matchAll(
-    /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g,
+    /<parameter\b[^>]*\bname="([^"]+)"[^>]*>([\s\S]*?)<\/parameter>/g,
   )) {
     found = true;
     params[match[1]] = parseParameterValue(match[2].trim());
@@ -944,16 +946,31 @@ function stripMiniMax(content: string): string {
 }
 
 function detectDSML(content: string): boolean {
-  return content.includes("dsml:tool_call");
+  return content.includes("dsml:tool_call") || content.includes(DSML_ALT_OPEN);
 }
 
 function parseDSML(content: string): ParsedToolCall[] {
-  const blocks = extractBetweenTags(content, DSML_OPEN, DSML_CLOSE);
+  const normalizedContent = normalizeDsmlPrefixedTags(content);
+  const blocks = [
+    ...extractBetweenTags(normalizedContent, DSML_OPEN, DSML_CLOSE),
+    ...extractBetweenTags(normalizedContent, "<tool_calls>", "</tool_calls>"),
+    ...extractBetweenTags(normalizedContent, "<tool_call>", "</tool_call>"),
+  ];
   return parseNamedXmlInvocations(blocks);
 }
 
 function stripDSML(content: string): string {
-  return stripBetweenTags(content, DSML_OPEN, DSML_CLOSE);
+  return stripBetweenTags(
+    stripBetweenTags(content, DSML_OPEN, DSML_CLOSE),
+    DSML_ALT_OPEN,
+    DSML_ALT_CLOSE,
+  );
+}
+
+function normalizeDsmlPrefixedTags(content: string): string {
+  return content
+    .replaceAll("<｜｜DSML｜｜", "<")
+    .replaceAll("</｜｜DSML｜｜", "</");
 }
 
 function parseNamedXmlInvocations(blocks: string[]): ParsedToolCall[] {
@@ -961,7 +978,7 @@ function parseNamedXmlInvocations(blocks: string[]): ParsedToolCall[] {
 
   for (const block of blocks) {
     const invokeMatch = block.match(
-      /<invoke\s+name="([^"]+)">([\s\S]*?)<\/invoke>/,
+      /<invoke\b[^>]*\bname="([^"]+)"[^>]*>([\s\S]*?)<\/invoke>/,
     );
     if (!invokeMatch) {
       continue;
@@ -1111,7 +1128,7 @@ export function detectAndParseToolCalls(
     const handler = FORMATS.find(
       (format) => format.name === normalizeFallbackFormat(forceFormat),
     );
-    if (!handler || !handler.detect(content)) {
+    if (!handler?.detect(content)) {
       return { format: null, toolCalls: [], cleanedContent: content };
     }
 
