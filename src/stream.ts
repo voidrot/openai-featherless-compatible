@@ -142,6 +142,16 @@ export class ToolCallFallbackTransformStream extends TransformStream<
       this.toolSchemas,
     );
 
+    if (detection.reasoningContent?.trim()) {
+      controller.enqueue({ type: "reasoning-start", id: "reasoning-0" });
+      controller.enqueue({
+        type: "reasoning-delta",
+        id: "reasoning-0",
+        delta: detection.reasoningContent,
+      });
+      controller.enqueue({ type: "reasoning-end", id: "reasoning-0" });
+    }
+
     const textId = this.textPartId ?? "txt-fallback-0";
     if (detection.cleanedContent.trim()) {
       controller.enqueue({ type: "text-start", id: textId });

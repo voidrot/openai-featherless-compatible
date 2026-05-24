@@ -105,8 +105,43 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
       this.toolCallFallback === "auto" ? undefined : this.toolCallFallback;
     const detection = detectAndParseToolCalls(textContent.text, forceFormat);
 
+    // If no tool calls found, still handle reasoning content injection if present
     if (detection.toolCalls.length === 0) {
-      return result;
+      if (!detection.reasoningContent?.trim()) {
+        return result;
+      }
+
+      // Inject reasoning content even without tool calls
+      const hasReasoningContent = result.content.some(
+        (part) => part.type === "reasoning",
+      );
+
+      if (hasReasoningContent) {
+        return result;
+      }
+
+      const newContent: LanguageModelV3Content[] = [];
+      for (const part of result.content) {
+        if (part.type === "text") {
+          newContent.push({
+            type: "reasoning",
+            text: detection.reasoningContent,
+          });
+          if (detection.cleanedContent.trim()) {
+            newContent.push({
+              type: "text",
+              text: detection.cleanedContent,
+            });
+          }
+        } else {
+          newContent.push(part);
+        }
+      }
+
+      return {
+        ...result,
+        content: newContent,
+      };
     }
 
     const parsedToolCalls = coerceParsedToolCalls(
@@ -126,6 +161,9 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
 
     // Replace text content with cleaned version + tool calls
     const newContent: LanguageModelV3Content[] = [];
+    const hasReasoningContent = result.content.some(
+      (part) => part.type === "reasoning",
+    );
 
     let injectedFallbackContent = false;
 
@@ -137,6 +175,13 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
         }
 
         injectedFallbackContent = true;
+
+        if (!hasReasoningContent && detection.reasoningContent?.trim()) {
+          newContent.push({
+            type: "reasoning",
+            text: detection.reasoningContent,
+          });
+        }
 
         // Add cleaned text (only if there's content after stripping)
         if (detection.cleanedContent.trim()) {

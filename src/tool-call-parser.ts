@@ -51,6 +51,7 @@ export interface ToolCallDetection {
   format: FeatherlessCompatibleToolCallFormat | null;
   toolCalls: ParsedToolCall[];
   cleanedContent: string;
+  reasoningContent?: string;
 }
 
 export type ToolSchemaMap = Map<string, JSONSchema7>;
@@ -678,6 +679,54 @@ function stripReasoningBlocks(content: string): string {
   return cleaned;
 }
 
+function extractReasoningBlocks(content: string): string {
+  if (!content) {
+    return "";
+  }
+
+  const fragments: string[] = [];
+  const closedBlockPattern =
+    /<(think|thinking|reasoning|thought|REASONING_SCRATCHPAD)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+
+  for (const match of content.matchAll(closedBlockPattern)) {
+    let block = match[2]?.trim();
+    if (block) {
+      // Strip tool-call markers from extracted reasoning content
+      block = stripToolCallMarkers(block, "xml").trim();
+      if (block) {
+        fragments.push(block);
+      }
+    }
+  }
+
+  const openTagPattern =
+    /<(think|thinking|reasoning|thought|REASONING_SCRATCHPAD)\b[^>]*>/gi;
+  let lastOpenTag: RegExpExecArray | null = null;
+
+  for (const match of content.matchAll(openTagPattern)) {
+    lastOpenTag = match;
+  }
+
+  if (lastOpenTag) {
+    const tagName = lastOpenTag[1];
+    const rest = content.slice(lastOpenTag.index + lastOpenTag[0].length);
+    const closeTagPattern = new RegExp(`</${tagName}>`, "i");
+
+    if (!closeTagPattern.test(rest)) {
+      let trailingBlock = rest.trim();
+      if (trailingBlock) {
+        // Strip tool-call markers from trailing reasoning content
+        trailingBlock = stripToolCallMarkers(trailingBlock, "xml").trim();
+        if (trailingBlock) {
+          fragments.push(trailingBlock);
+        }
+      }
+    }
+  }
+
+  return fragments.join("\n\n");
+}
+
 function detectFencedJson(content: string): boolean {
   FENCED_JSON_BLOCK_RE.lastIndex = 0;
   return FENCED_JSON_BLOCK_RE.test(content);
@@ -1056,6 +1105,16 @@ function stripXml(content: string): string {
 
   XML_FUNCTION_NAME_RE.lastIndex = 0;
   stripped = stripWithRegex(stripped, XML_FUNCTION_NAME_RE);
+
+  // Also strip <function=name> format used by some models
+  stripped = stripped.replace(
+    /<function\s*=\s*\w+\b[^>]*>[\s\S]*?<\/function>/gi,
+    " ",
+  );
+
+  // Collapse multiple spaces into single space (but preserve leading/trailing)
+  stripped = stripped.replace(/ {2,}/g, " ");
+
   return stripped;
 }
 
@@ -1124,6 +1183,8 @@ export function detectAndParseToolCalls(
     return { format: null, toolCalls: [], cleanedContent: content ?? "" };
   }
 
+  const reasoningContent = extractReasoningBlocks(content);
+
   if (forceFormat) {
     const handler = FORMATS.find(
       (format) => format.name === normalizeFallbackFormat(forceFormat),
@@ -1141,6 +1202,7 @@ export function detectAndParseToolCalls(
       format: handler.name,
       toolCalls,
       cleanedContent: stripReasoningBlocks(handler.strip(content)),
+      ...(reasoningContent ? { reasoningContent } : {}),
     };
   }
 
@@ -1167,13 +1229,19 @@ export function detectAndParseToolCalls(
   }
 
   if (allToolCalls.length === 0) {
-    return { format: null, toolCalls: [], cleanedContent: content };
+    return {
+      format: null,
+      toolCalls: [],
+      cleanedContent: stripReasoningBlocks(content),
+      ...(reasoningContent ? { reasoningContent } : {}),
+    };
   }
 
   return {
     format: detectedFormat,
     toolCalls: reindexToolCalls(allToolCalls),
     cleanedContent: stripReasoningBlocks(cleanedContent),
+    ...(reasoningContent ? { reasoningContent } : {}),
   };
 }
 

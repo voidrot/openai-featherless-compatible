@@ -18,6 +18,7 @@ This package restores that compatibility by:
 - detecting text-emitted tool calls in common provider formats
 - converting them into AI SDK tool-call objects and stream events
 - cleaning tool-call envelopes and reasoning markers out of visible output
+- preserving extracted reasoning as AI SDK reasoning parts so providers like DeepSeek can receive `reasoning_content` on follow-up turns
 - coercing malformed tool arguments against function schemas when possible
 
 ## Installation
@@ -43,6 +44,7 @@ npm install @voidrot/openai-featherless-compatible
 - Generic XML tool-call formats such as `<tool_call>` and `<function name="...">`
 - Schema-based coercion for malformed fallback tool arguments
 - Streaming and non-streaming fallback paths with `tool-calls` finish reasons
+- Reasoning-context round-tripping for models that require prior `reasoning_content` in subsequent requests
 
 ## API Surface
 

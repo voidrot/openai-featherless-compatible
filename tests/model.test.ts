@@ -284,9 +284,86 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
       abortSignal: undefined,
     });
 
+    expect(
+      result.content.find((part) => part.type === "reasoning"),
+    ).toMatchObject({
+      type: "reasoning",
+      text: "hidden",
+    });
     expect(result.content.find((part) => part.type === "text")).toMatchObject({
       type: "text",
       text: "Visible ",
+    });
+  });
+
+  it("emits reasoning stream parts when fallback text contains think tags", async () => {
+    const model = createModel({
+      streamParts: [
+        { type: "stream-start", warnings: [] },
+        { type: "text-start", id: "txt-0" },
+        {
+          type: "text-delta",
+          id: "txt-0",
+          delta:
+            '<think>step-by-step</think>Visible <tool_call>{"name":"search","arguments":{}}</tool_call>',
+        },
+        { type: "text-end", id: "txt-0" },
+        { type: "finish", finishReason: createFinishReason("stop"), usage },
+      ],
+    });
+
+    const result = await model.doStream({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+    });
+    const parts = await readStreamParts(result.stream);
+
+    expect(parts).toContainEqual({
+      type: "reasoning-start",
+      id: "reasoning-0",
+    });
+    expect(parts).toContainEqual({
+      type: "reasoning-delta",
+      id: "reasoning-0",
+      delta: "step-by-step",
+    });
+    expect(parts).toContainEqual({ type: "reasoning-end", id: "reasoning-0" });
+    expect(parts).toContainEqual({
+      type: "text-delta",
+      id: "txt-0",
+      delta: "Visible ",
+    });
+  });
+
+  it("strips tool-call markers from reasoning content in fallback", async () => {
+    const model = createModel({
+      generateResult: {
+        content: [
+          {
+            type: "text",
+            text: "<think>Calling <function=search></function> to lookup info. After that I think of answer</think>Result",
+          },
+        ],
+        usage: { promptTokens: 10, completionTokens: 20 },
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+    });
+
+    expect(
+      result.content.find((part) => part.type === "reasoning"),
+    ).toMatchObject({
+      type: "reasoning",
+      text: "Calling to lookup info. After that I think of answer",
+    });
+    expect(result.content.find((part) => part.type === "text")).toMatchObject({
+      type: "text",
+      text: "Result",
     });
   });
 });
