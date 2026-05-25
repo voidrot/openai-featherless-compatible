@@ -156,7 +156,9 @@ export class ToolCallFallbackTransformStream extends TransformStream<
         : [
             ...new Set(
               parsedToolCalls
-                .filter((toolCall) => !availableToolNameSet.has(toolCall.toolName))
+                .filter(
+                  (toolCall) => !availableToolNameSet.has(toolCall.toolName),
+                )
                 .map((toolCall) => toolCall.toolName),
             ),
           ];

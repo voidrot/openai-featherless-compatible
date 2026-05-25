@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-05-25
+
+### Tests
+
+- Added regression coverage for single-parameter string `<parameter=key>` in `<function=name>` syntax (e.g. `websearch` with `query` parameter)
+- Added regression coverage for `<function=name>` tool calls embedded at the end of large prose messages
+
 ## [0.3.0] - 2026-05-24
 
 ### Added
@@ -117,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for both generated and streamed responses
 - XML/HTML tag stripping with format-specific handling
 
+[0.3.1]: https://github.com/voidrot/openai-featherless-compatible/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/voidrot/openai-featherless-compatible/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.2...0.1.3

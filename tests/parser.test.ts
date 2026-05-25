@@ -286,6 +286,48 @@ content
       });
     });
 
+    it("should detect single-parameter string value in function equals syntax", () => {
+      const content = `<tool_call>
+<function=websearch>
+<parameter=query>
+gemini-3-flash-preview context length
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = detectAndParseToolCalls(content);
+
+      expect(result.format).toBe("xml");
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls[0].toolName).toBe("websearch");
+      expect(result.toolCalls[0].arguments).toEqual({
+        query: "gemini-3-flash-preview context length",
+      });
+    });
+
+    it("should detect function equals tool call embedded in large prose message", () => {
+      const prose =
+        "Now I can see the structure. The model list ends at line 1364 (after the last gemma model), and then search_tools: starts at line 1366. I need to add the Ollama Cloud models between the Google AI Studio section and the search_tools section.\n".repeat(
+          200,
+        );
+      const content = `${prose}<tool_call>
+<function=websearch>
+<parameter=query>
+gemini-3-flash-preview context length
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = detectAndParseToolCalls(content);
+
+      expect(result.format).toBe("xml");
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls[0].toolName).toBe("websearch");
+      expect(result.toolCalls[0].arguments).toEqual({
+        query: "gemini-3-flash-preview context length",
+      });
+    });
+
     it("should detect function_calls JSON arrays", () => {
       const content =
         '<function_calls>[{"name":"search","arguments":{"query":"one"}},{"name":"search","arguments":{"query":"two"}}]</function_calls>';

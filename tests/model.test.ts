@@ -1283,11 +1283,12 @@ Let me read the end of the model list to find the insertion point.
     });
 
     expect(result.finishReason.unified).toBe("stop");
-    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(
+      false,
+    );
     expect(result.content).toContainEqual({
       type: "text",
-      text:
-        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+      text: "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
     });
   });
 
@@ -1337,8 +1338,7 @@ Let me read the end of the model list to find the insertion point.
     });
     expect(result.content).toContainEqual({
       type: "text",
-      text:
-        "Invalid tool name: read. Available tools: search, read_file. Retry using one of the available tool names.",
+      text: "Invalid tool name: read. Available tools: search, read_file. Retry using one of the available tool names.",
     });
   });
 
@@ -1422,16 +1422,18 @@ Let me read the end of the model list to find the insertion point.
       ],
     });
 
-    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(
+      false,
+    );
     expect(result.content).toContainEqual({
       type: "text",
-      text:
-        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+      text: "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
     });
   });
 
   it("nudges invalid tool names for fenced-json syntax in doGenerate", async () => {
-    const payload = '```json\n{"name":"read","arguments":{"filePath":"/tmp/demo.txt"}}\n```';
+    const payload =
+      '```json\n{"name":"read","arguments":{"filePath":"/tmp/demo.txt"}}\n```';
 
     const model = createModel({
       generateResult: {
@@ -1458,11 +1460,12 @@ Let me read the end of the model list to find the insertion point.
       ],
     });
 
-    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(
+      false,
+    );
     expect(result.content).toContainEqual({
       type: "text",
-      text:
-        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+      text: "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
     });
   });
 
@@ -1495,11 +1498,12 @@ Let me read the end of the model list to find the insertion point.
       ],
     });
 
-    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(
+      false,
+    );
     expect(result.content).toContainEqual({
       type: "text",
-      text:
-        "Invalid tool names: read, write. Available tools: read_file. Retry using one of the available tool names.",
+      text: "Invalid tool names: read, write. Available tools: read_file. Retry using one of the available tool names.",
     });
   });
 });

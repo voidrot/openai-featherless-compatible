@@ -1,6 +1,6 @@
 {
   "name": "@voidrot/openai-featherless-compatible",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "An OpenAI-compatible provider wrapper with Featherless-compatible fallback parsing for text-emitted tool calls",
   "license": "MIT",
   "repository": {
