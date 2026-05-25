@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/%40voidrot%2Fopenai-featherless-compatible)](https://www.npmjs.com/package/@voidrot/openai-featherless-compatible)
 [![CI](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/ci.yml/badge.svg)](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/ci.yml)
-[![Publish Package](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/publish.yml/badge.svg)](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/publish.yml)
+[![Publish Package](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/publish.yml/badge.svg?event=push)](https://github.com/voidrot/openai-featherless-compatible/actions/workflows/publish.yml?query=event%3Apush)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 `@voidrot/openai-featherless-compatible` wraps `@ai-sdk/openai-compatible` with client-side fallback parsing for models that emit tool calls as text instead of native function-call objects.
