@@ -320,8 +320,12 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
     const parts = await readStreamParts(result.stream);
 
     const reasoningStart = parts.find(
-      (part): part is Extract<LanguageModelV3StreamPart, { type: "reasoning-start" }> =>
-        part.type === "reasoning-start",
+      (
+        part,
+      ): part is Extract<
+        LanguageModelV3StreamPart,
+        { type: "reasoning-start" }
+      > => part.type === "reasoning-start",
     );
     expect(reasoningStart).toBeDefined();
 
@@ -497,7 +501,9 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
     const parts = await readStreamParts(result.stream);
 
     const toolCalls = parts.filter(
-      (part): part is Extract<LanguageModelV3StreamPart, { type: "tool-call" }> =>
+      (
+        part,
+      ): part is Extract<LanguageModelV3StreamPart, { type: "tool-call" }> =>
         part.type === "tool-call",
     );
 
@@ -749,8 +755,12 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
     const parts = await readStreamParts(result.stream);
 
     const reasoningStarts = parts.filter(
-      (part): part is Extract<LanguageModelV3StreamPart, { type: "reasoning-start" }> =>
-        part.type === "reasoning-start",
+      (
+        part,
+      ): part is Extract<
+        LanguageModelV3StreamPart,
+        { type: "reasoning-start" }
+      > => part.type === "reasoning-start",
     );
 
     const ids = reasoningStarts.map((part) => part.id);
@@ -766,7 +776,8 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
         {
           type: "text-delta",
           id: "txt-0",
-          delta: 'call>{"name":"search","arguments":{"query":"split"}}</tool_call> After',
+          delta:
+            'call>{"name":"search","arguments":{"query":"split"}}</tool_call> After',
         },
         { type: "text-end", id: "txt-0" },
         { type: "finish", finishReason: createFinishReason("stop"), usage },
@@ -799,7 +810,8 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
         {
           type: "text-delta",
           id: "txt-1",
-          delta: 'call>{"name":"search","arguments":{"query":"segmented"}}</tool_call> After',
+          delta:
+            'call>{"name":"search","arguments":{"query":"segmented"}}</tool_call> After',
         },
         { type: "text-end", id: "txt-1" },
         { type: "finish", finishReason: createFinishReason("stop"), usage },
@@ -934,8 +946,12 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
     });
 
     const reasoningParts = result.content.filter(
-      (part): part is Extract<(typeof result.content)[number], { type: "reasoning" }> =>
-        part.type === "reasoning",
+      (
+        part,
+      ): part is Extract<
+        (typeof result.content)[number],
+        { type: "reasoning" }
+      > => part.type === "reasoning",
     );
 
     expect(reasoningParts).toHaveLength(1);
@@ -982,7 +998,8 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
       {
         type: "text-delta",
         id: "txt-0",
-        delta: '<tool_call>{"name":"search","arguments":{"query":"x"}}</tool_call>',
+        delta:
+          '<tool_call>{"name":"search","arguments":{"query":"x"}}</tool_call>',
       },
       { type: "text-end", id: "txt-0" },
       { type: "finish", finishReason: createFinishReason("stop"), usage },
@@ -1031,7 +1048,7 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
       content: [
         {
           type: "text",
-          text: 'Literal docs: <tool_call>{not valid json}</tool_call> should remain unchanged.',
+          text: "Literal docs: <tool_call>{not valid json}</tool_call> should remain unchanged.",
         },
       ],
       finishReason: createFinishReason("stop"),
@@ -1063,7 +1080,8 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
         {
           type: "text-delta",
           id: "txt-0",
-          delta: 'Before <tool_call>{"name":"search","arguments":{"query":"x"}}</tool_call> After',
+          delta:
+            'Before <tool_call>{"name":"search","arguments":{"query":"x"}}</tool_call> After',
         },
         { type: "text-end", id: "txt-0" },
         { type: "finish", finishReason: createFinishReason("stop"), usage },
