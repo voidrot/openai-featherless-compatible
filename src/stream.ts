@@ -24,6 +24,8 @@ export class ToolCallFallbackTransformStream extends TransformStream<
   private readonly bufferedTextParts: LanguageModelV3StreamPart[] = [];
   private textPartId: string | undefined;
   private sawNativeToolCalls = false;
+  private readonly seenReasoningIds = new Set<string>();
+  private fallbackReasoningIndex = 0;
   private readonly toolCallFallback: FeatherlessCompatibleToolCallFallbackMode;
   private readonly makeToolCallId: (index: number, toolName: string) => string;
   private readonly toolSchemas: ToolSchemaMap;
@@ -87,6 +89,11 @@ export class ToolCallFallbackTransformStream extends TransformStream<
         controller.enqueue(chunk);
         return;
 
+      case "reasoning-start":
+        this.seenReasoningIds.add(chunk.id);
+        controller.enqueue(chunk);
+        return;
+
       case "finish": {
         const emittedFallback = this.emitFallbackToolCalls(controller);
         controller.enqueue(
@@ -143,13 +150,14 @@ export class ToolCallFallbackTransformStream extends TransformStream<
     );
 
     if (detection.reasoningContent?.trim()) {
-      controller.enqueue({ type: "reasoning-start", id: "reasoning-0" });
+      const reasoningId = this.makeFallbackReasoningId();
+      controller.enqueue({ type: "reasoning-start", id: reasoningId });
       controller.enqueue({
         type: "reasoning-delta",
-        id: "reasoning-0",
+        id: reasoningId,
         delta: detection.reasoningContent,
       });
-      controller.enqueue({ type: "reasoning-end", id: "reasoning-0" });
+      controller.enqueue({ type: "reasoning-end", id: reasoningId });
     }
 
     const textId = this.textPartId ?? "txt-fallback-0";
@@ -205,5 +213,15 @@ export class ToolCallFallbackTransformStream extends TransformStream<
     this.buffer = "";
     this.bufferedTextParts.length = 0;
     this.textPartId = undefined;
+  }
+
+  private makeFallbackReasoningId(): string {
+    while (true) {
+      const id = `reasoning-fallback-${this.fallbackReasoningIndex++}`;
+      if (!this.seenReasoningIds.has(id)) {
+        this.seenReasoningIds.add(id);
+        return id;
+      }
+    }
   }
 }

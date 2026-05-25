@@ -227,6 +227,37 @@ describe("featherless-compatible-tool-call-parser", () => {
       expect(result.toolCalls[0].arguments).toEqual({ path: "/tmp/demo.txt" });
     });
 
+    it("should detect StepFun-style function equals syntax with parameter equals tags", () => {
+      const content = `<tool_call>
+<function=grep>
+<parameter=-n>
+True
+</parameter>
+<parameter=output>
+content
+</parameter>
+<parameter=path>
+/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml
+</parameter>
+<parameter=pattern>
+^          search_tools:
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = detectAndParseToolCalls(content);
+
+      expect(result.format).toBe("xml");
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls[0].toolName).toBe("grep");
+      expect(result.toolCalls[0].arguments).toEqual({
+        "-n": true,
+        output: "content",
+        path: "/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml",
+        pattern: "^          search_tools:",
+      });
+    });
+
     it("should detect function_calls JSON arrays", () => {
       const content =
         '<function_calls>[{"name":"search","arguments":{"query":"one"}},{"name":"search","arguments":{"query":"two"}}]</function_calls>';

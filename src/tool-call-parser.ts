@@ -81,6 +81,8 @@ const XML_TOOL_BLOCK_RE =
   /<(tool_call|tool_calls|function_call|function_calls)\b[^>]*>([\s\S]*?)<\/\1>/gi;
 const XML_FUNCTION_NAME_RE =
   /<function\b[^>]*\bname\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/function>/gi;
+const XML_FUNCTION_EQUALS_RE =
+  /<function\s*=\s*([^>\s]+)[^>]*>([\s\S]*?)<\/function>/gi;
 
 export function generateToolCallId(index: number, toolName: string): string {
   return `tc_${index}_${toolName}`;
@@ -407,6 +409,13 @@ function parseParameterTags(
 
   for (const match of content.matchAll(
     /<parameter\b[^>]*\bname="([^"]+)"[^>]*>([\s\S]*?)<\/parameter>/g,
+  )) {
+    found = true;
+    params[match[1]] = parseParameterValue(match[2].trim());
+  }
+
+  for (const match of content.matchAll(
+    /<parameter\s*=\s*([^>\s]+)[^>]*>([\s\S]*?)<\/parameter>/g,
   )) {
     found = true;
     params[match[1]] = parseParameterValue(match[2].trim());
@@ -1051,13 +1060,19 @@ function parseNamedXmlInvocations(blocks: string[]): ParsedToolCall[] {
 function detectXml(content: string): boolean {
   XML_TOOL_BLOCK_RE.lastIndex = 0;
   XML_FUNCTION_NAME_RE.lastIndex = 0;
-  return XML_TOOL_BLOCK_RE.test(content) || XML_FUNCTION_NAME_RE.test(content);
+  XML_FUNCTION_EQUALS_RE.lastIndex = 0;
+  return (
+    XML_TOOL_BLOCK_RE.test(content) ||
+    XML_FUNCTION_NAME_RE.test(content) ||
+    XML_FUNCTION_EQUALS_RE.test(content)
+  );
 }
 
 function parseXml(content: string): ParsedToolCall[] {
   const toolCalls: ParsedToolCall[] = [];
   XML_TOOL_BLOCK_RE.lastIndex = 0;
   XML_FUNCTION_NAME_RE.lastIndex = 0;
+  XML_FUNCTION_EQUALS_RE.lastIndex = 0;
 
   for (const match of content.matchAll(XML_TOOL_BLOCK_RE)) {
     const blockContent = match[2].trim();
@@ -1070,7 +1085,24 @@ function parseXml(content: string): ParsedToolCall[] {
     toolCalls.push(...parseXml(blockContent));
   }
 
-  for (const match of content.matchAll(XML_FUNCTION_NAME_RE)) {
+  XML_TOOL_BLOCK_RE.lastIndex = 0;
+  const wrapperStrippedContent = content.replace(XML_TOOL_BLOCK_RE, "");
+
+  for (const match of wrapperStrippedContent.matchAll(XML_FUNCTION_NAME_RE)) {
+    const toolName = match[1].trim();
+    const body = match[2].trim();
+    const parameters = parseParameterTags(body);
+    const jsonArguments = parseToolArguments(body);
+    const argumentsObject = parameters ?? jsonArguments ?? {};
+
+    toolCalls.push({
+      toolCallId: generateToolCallId(toolCalls.length, toolName),
+      toolName,
+      arguments: argumentsObject,
+    });
+  }
+
+  for (const match of wrapperStrippedContent.matchAll(XML_FUNCTION_EQUALS_RE)) {
     const toolName = match[1].trim();
     const body = match[2].trim();
     const parameters = parseParameterTags(body);
@@ -1105,6 +1137,9 @@ function stripXml(content: string): string {
 
   XML_FUNCTION_NAME_RE.lastIndex = 0;
   stripped = stripWithRegex(stripped, XML_FUNCTION_NAME_RE);
+
+  XML_FUNCTION_EQUALS_RE.lastIndex = 0;
+  stripped = stripWithRegex(stripped, XML_FUNCTION_EQUALS_RE);
 
   // Also strip <function=name> format used by some models
   stripped = stripped.replace(

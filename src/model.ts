@@ -85,12 +85,11 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
 
     const toolSchemas = buildToolSchemaMap(options.tools);
 
-    // Find text content
-    const textContent = result.content.find(
+    const textParts = result.content.filter(
       (c): c is { type: "text"; text: string } => c.type === "text",
     );
 
-    if (!textContent || !textContent.text) {
+    if (textParts.length === 0) {
       return result;
     }
 
@@ -100,81 +99,35 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
       return result;
     }
 
-    // Parse tool calls from text
     const forceFormat =
       this.toolCallFallback === "auto" ? undefined : this.toolCallFallback;
-    const detection = detectAndParseToolCalls(textContent.text, forceFormat);
+    const detections = textParts.map((part) =>
+      detectAndParseToolCalls(part.text, forceFormat),
+    );
+    const parsedToolCallCount = detections.reduce(
+      (count, detection) => count + detection.toolCalls.length,
+      0,
+    );
+    const extractedReasoningCount = detections.reduce(
+      (count, detection) =>
+        count + (detection.reasoningContent?.trim() ? 1 : 0),
+      0,
+    );
 
-    // If no tool calls found, still handle reasoning content injection if present
-    if (detection.toolCalls.length === 0) {
-      if (!detection.reasoningContent?.trim()) {
-        return result;
-      }
-
-      // Inject reasoning content even without tool calls
-      const hasReasoningContent = result.content.some(
-        (part) => part.type === "reasoning",
-      );
-
-      if (hasReasoningContent) {
-        return result;
-      }
-
-      const newContent: LanguageModelV3Content[] = [];
-      for (const part of result.content) {
-        if (part.type === "text") {
-          newContent.push({
-            type: "reasoning",
-            text: detection.reasoningContent,
-          });
-          if (detection.cleanedContent.trim()) {
-            newContent.push({
-              type: "text",
-              text: detection.cleanedContent,
-            });
-          }
-        } else {
-          newContent.push(part);
-        }
-      }
-
-      return {
-        ...result,
-        content: newContent,
-      };
+    if (parsedToolCallCount === 0 && extractedReasoningCount === 0) {
+      return result;
     }
 
-    const parsedToolCalls = coerceParsedToolCalls(
-      detection.toolCalls,
-      toolSchemas,
-    );
-
-    // Build new content array with parsed tool calls
-    const toolCallContents: LanguageModelV3Content[] = parsedToolCalls.map(
-      (tc, index) => ({
-        type: "tool-call" as const,
-        toolCallId: this.makeToolCallId(index, tc.toolName),
-        toolName: tc.toolName,
-        input: JSON.stringify(tc.arguments),
-      }),
-    );
-
-    // Replace text content with cleaned version + tool calls
     const newContent: LanguageModelV3Content[] = [];
     const hasReasoningContent = result.content.some(
       (part) => part.type === "reasoning",
     );
-
-    let injectedFallbackContent = false;
+    let textPartIndex = 0;
+    let parsedToolCallIndex = 0;
 
     for (const part of result.content) {
       if (part.type === "text") {
-        if (injectedFallbackContent) {
-          newContent.push(part);
-          continue;
-        }
-
-        injectedFallbackContent = true;
+        const detection = detections[textPartIndex++];
 
         if (!hasReasoningContent && detection.reasoningContent?.trim()) {
           newContent.push({
@@ -183,13 +136,28 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
           });
         }
 
-        // Add cleaned text (only if there's content after stripping)
         if (detection.cleanedContent.trim()) {
           newContent.push({ type: "text", text: detection.cleanedContent });
         }
 
-        // Add tool calls
-        newContent.push(...toolCallContents);
+        if (detection.toolCalls.length > 0) {
+          const parsedToolCalls = coerceParsedToolCalls(
+            detection.toolCalls,
+            toolSchemas,
+          );
+
+          for (const toolCall of parsedToolCalls) {
+            newContent.push({
+              type: "tool-call",
+              toolCallId: this.makeToolCallId(
+                parsedToolCallIndex++,
+                toolCall.toolName,
+              ),
+              toolName: toolCall.toolName,
+              input: JSON.stringify(toolCall.arguments),
+            });
+          }
+        }
       } else {
         newContent.push(part);
       }
@@ -198,10 +166,14 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
     return {
       ...result,
       content: newContent,
-      finishReason: {
-        ...result.finishReason,
-        unified: "tool-calls",
-      },
+      ...(parsedToolCallCount > 0
+        ? {
+            finishReason: {
+              ...result.finishReason,
+              unified: "tool-calls",
+            },
+          }
+        : {}),
     };
   }
 

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-24
+
+### Added
+
+- Support for StepFun-style `<function=name>` / `<parameter=key>` tool-call syntax, used by models such as `stepfun-ai/Step-3.5-Flash`, in both detection, parsing, and stripping paths
+- Fallback-emitted stream reasoning parts now use unique IDs (`reasoning-fallback-N`) to prevent collisions when upstream already emits reasoning events in the same stream
+
+### Fixed
+
+- Strip tool-call markers from within reasoning content to preserve clean reasoning text
+- Properly inject reasoning content into response even when no actual tool calls are detected
+- Fixed whitespace normalization after marker stripping to prevent double spaces
+- Fixed duplicate extraction bug when `<function>` tags appear inside `<tool_call>` wrapper blocks — wrapper contents are now parsed recursively and top-level function tags are only matched outside wrappers
+
+### Tests
+
+- Added regression coverage for StepFun `<function=name>/<parameter=key>` format in parser and end-to-end generate paths
+- Added regression tests for message integrity invariants: stream chunk boundaries and IDs are preserved when no fallback should apply
+- Added regression tests for multi-tool fallback parsing in both `doGenerate` and `doStream` paths
+- Added regression tests for disabled-mode and forced-format-mismatch no-op guarantees
+- Added regression tests for native tool-call precedence over fallback parsing
+- Added regression tests for non-text part interleaving, stream flush without finish, non-parsable marker preservation, non-text event ordering, reasoning ID uniqueness, and schema coercion with multi-tool streaming
+
 ## [0.1.3] - 2026-05-24
 
 ### Fixed
@@ -71,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for both generated and streamed responses
 - XML/HTML tag stripping with format-specific handling
 
+[0.2.0]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.0...0.1.1
