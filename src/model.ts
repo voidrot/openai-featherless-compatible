@@ -70,6 +70,21 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
     return `tc_${index}_${toolName}`;
   }
 
+  private createInvalidToolNameNudge(
+    invalidToolNames: string[],
+    availableToolNames: string[],
+  ): string {
+    if (invalidToolNames.length === 0 || availableToolNames.length === 0) {
+      return "";
+    }
+
+    const invalid = invalidToolNames.join(", ");
+    const available = availableToolNames.join(", ");
+    const noun = invalidToolNames.length === 1 ? "tool name" : "tool names";
+
+    return `Invalid ${noun}: ${invalid}. Available tools: ${available}. Retry using one of the available tool names.`;
+  }
+
   /**
    * Override doGenerate to apply tool call fallback.
    */
@@ -84,6 +99,8 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
     }
 
     const toolSchemas = buildToolSchemaMap(options.tools);
+    const availableToolNames = [...toolSchemas.keys()];
+    const availableToolNameSet = new Set(availableToolNames);
 
     const textParts = result.content.filter(
       (c): c is { type: "text"; text: string } => c.type === "text",
@@ -124,6 +141,7 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
     );
     let textPartIndex = 0;
     let parsedToolCallIndex = 0;
+    let emittedToolCallCount = 0;
 
     for (const part of result.content) {
       if (part.type === "text") {
@@ -146,7 +164,35 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
             toolSchemas,
           );
 
-          for (const toolCall of parsedToolCalls) {
+          const invalidToolNames =
+            availableToolNameSet.size === 0
+              ? []
+              : [
+                  ...new Set(
+                    parsedToolCalls
+                      .filter(
+                        (toolCall) =>
+                          !availableToolNameSet.has(toolCall.toolName),
+                      )
+                      .map((toolCall) => toolCall.toolName),
+                  ),
+                ];
+          const validToolCalls =
+            availableToolNameSet.size === 0
+              ? parsedToolCalls
+              : parsedToolCalls.filter((toolCall) =>
+                  availableToolNameSet.has(toolCall.toolName),
+                );
+
+          const nudge = this.createInvalidToolNameNudge(
+            invalidToolNames,
+            availableToolNames,
+          );
+          if (nudge) {
+            newContent.push({ type: "text", text: nudge });
+          }
+
+          for (const toolCall of validToolCalls) {
             newContent.push({
               type: "tool-call",
               toolCallId: this.makeToolCallId(
@@ -156,6 +202,7 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
               toolName: toolCall.toolName,
               input: JSON.stringify(toolCall.arguments),
             });
+            emittedToolCallCount++;
           }
         }
       } else {
@@ -166,7 +213,7 @@ export class FeatherlessCompatibleChatLanguageModel implements LanguageModelV3 {
     return {
       ...result,
       content: newContent,
-      ...(parsedToolCallCount > 0
+      ...(emittedToolCallCount > 0
         ? {
             finishReason: {
               ...result.finishReason,

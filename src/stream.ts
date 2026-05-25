@@ -148,6 +148,28 @@ export class ToolCallFallbackTransformStream extends TransformStream<
       detection.toolCalls,
       this.toolSchemas,
     );
+    const availableToolNames = [...this.toolSchemas.keys()];
+    const availableToolNameSet = new Set(availableToolNames);
+    const invalidToolNames =
+      availableToolNameSet.size === 0
+        ? []
+        : [
+            ...new Set(
+              parsedToolCalls
+                .filter((toolCall) => !availableToolNameSet.has(toolCall.toolName))
+                .map((toolCall) => toolCall.toolName),
+            ),
+          ];
+    const validToolCalls =
+      availableToolNameSet.size === 0
+        ? parsedToolCalls
+        : parsedToolCalls.filter((toolCall) =>
+            availableToolNameSet.has(toolCall.toolName),
+          );
+    const nudge = this.createInvalidToolNameNudge(
+      invalidToolNames,
+      availableToolNames,
+    );
 
     if (detection.reasoningContent?.trim()) {
       const reasoningId = this.makeFallbackReasoningId();
@@ -161,17 +183,21 @@ export class ToolCallFallbackTransformStream extends TransformStream<
     }
 
     const textId = this.textPartId ?? "txt-fallback-0";
-    if (detection.cleanedContent.trim()) {
+    const hasCleanedText = detection.cleanedContent.trim().length > 0;
+    const combinedText = hasCleanedText
+      ? `${detection.cleanedContent}${nudge ? `\n${nudge}` : ""}`
+      : nudge;
+    if (combinedText) {
       controller.enqueue({ type: "text-start", id: textId });
       controller.enqueue({
         type: "text-delta",
         id: textId,
-        delta: detection.cleanedContent,
+        delta: combinedText,
       });
       controller.enqueue({ type: "text-end", id: textId });
     }
 
-    for (const [index, toolCall] of parsedToolCalls.entries()) {
+    for (const [index, toolCall] of validToolCalls.entries()) {
       const toolCallId = this.makeToolCallId(index, toolCall.toolName);
       const input = JSON.stringify(toolCall.arguments);
 
@@ -198,7 +224,7 @@ export class ToolCallFallbackTransformStream extends TransformStream<
     }
 
     this.resetBuffer();
-    return true;
+    return validToolCalls.length > 0;
   }
 
   private flushChunk(
@@ -213,6 +239,21 @@ export class ToolCallFallbackTransformStream extends TransformStream<
     this.buffer = "";
     this.bufferedTextParts.length = 0;
     this.textPartId = undefined;
+  }
+
+  private createInvalidToolNameNudge(
+    invalidToolNames: string[],
+    availableToolNames: string[],
+  ): string {
+    if (invalidToolNames.length === 0 || availableToolNames.length === 0) {
+      return "";
+    }
+
+    const invalid = invalidToolNames.join(", ");
+    const available = availableToolNames.join(", ");
+    const noun = invalidToolNames.length === 1 ? "tool name" : "tool names";
+
+    return `Invalid ${noun}: ${invalid}. Available tools: ${available}. Retry using one of the available tool names.`;
   }
 
   private makeFallbackReasoningId(): string {

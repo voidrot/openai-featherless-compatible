@@ -258,6 +258,34 @@ content
       });
     });
 
+    it("should detect Nemotron-style function equals payload with filePath/limit/offset parameters", () => {
+      const content = `<tool_call>
+<function=read>
+<parameter=filePath>
+/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml
+</parameter>
+<parameter=limit>
+30
+</parameter>
+<parameter=offset>
+1050
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = detectAndParseToolCalls(content);
+
+      expect(result.format).toBe("xml");
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls[0].toolName).toBe("read");
+      expect(result.toolCalls[0].arguments).toEqual({
+        filePath:
+          "/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml",
+        limit: 30,
+        offset: 1050,
+      });
+    });
+
     it("should detect function_calls JSON arrays", () => {
       const content =
         '<function_calls>[{"name":"search","arguments":{"query":"one"}},{"name":"search","arguments":{"query":"two"}}]</function_calls>';

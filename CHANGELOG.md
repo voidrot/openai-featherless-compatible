@@ -1,9 +1,32 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - 2026-05-24
+
+### Added
+
+- Invalid fallback-parsed tool names now trigger a model nudge listing available tool names instead of attempting implicit tool-name remapping
+- Added regression coverage for Nemotron-style tool-call payloads (`<tool_call><function=...><parameter=...>`) in parser, `doGenerate`, and `doStream` paths
+
+### Fixed
+
+- Resolved TypeScript diagnostics in test fixtures by aligning response header and usage shapes with LanguageModel v3 types
+- Preserved fallback stream text whitespace/newline behavior while appending invalid-tool-name nudges
+
+### Changed
+
+- Updated README publish badge to track push-triggered publish runs only, avoiding false-failing status from manual double-publish runs
+
+### Tests
+
+- Added invalid-tool-name nudge regression coverage for XML function-name syntax, XML function-equals syntax, fenced JSON syntax, stream fallback, and plural invalid-name messaging
+- Expanded fallback integration coverage to ensure full long-form responses with trailing tool blocks continue to extract tool calls correctly
 
 ## [0.2.0] - 2026-05-24
 
@@ -94,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for both generated and streamed responses
 - XML/HTML tag stripping with format-specific handling
 
+[0.3.0]: https://github.com/voidrot/openai-featherless-compatible/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/voidrot/openai-featherless-compatible/compare/0.1.1...0.1.2

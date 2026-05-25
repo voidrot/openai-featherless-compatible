@@ -73,7 +73,7 @@ function createModel(params: {
       async (): Promise<LanguageModelV3StreamResult> => ({
         stream: createStream(params.streamParts ?? []),
         request: { body: {} },
-        response: { headers: new Headers() },
+        response: { headers: {} },
       }),
     ),
   };
@@ -354,7 +354,9 @@ describe("FeatherlessCompatibleChatLanguageModel", () => {
             text: "<think>Calling <function=search></function> to lookup info. After that I think of answer</think>Result",
           },
         ],
-        usage: { promptTokens: 10, completionTokens: 20 },
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
       },
     });
 
@@ -1153,5 +1155,351 @@ content
         '{"-n":true,"output":"content","path":"/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml","pattern":"^          search_tools:"}',
     });
     expect(result.content).toContainEqual({ type: "text", text: "Done" });
+  });
+
+  it("extracts Nemotron function equals tool call payload in doStream fallback", async () => {
+    const payload = `<tool_call>
+<function=read>
+<parameter=filePath>
+/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml
+</parameter>
+<parameter=limit>
+30
+</parameter>
+<parameter=offset>
+1050
+</parameter>
+</function>
+</tool_call>`;
+
+    const model = createModel({
+      streamParts: [
+        { type: "stream-start", warnings: [] },
+        { type: "text-start", id: "txt-0" },
+        { type: "text-delta", id: "txt-0", delta: payload },
+        { type: "text-end", id: "txt-0" },
+        { type: "finish", finishReason: createFinishReason("stop"), usage },
+      ],
+    });
+
+    const result = await model.doStream({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+    });
+    const parts = await readStreamParts(result.stream);
+
+    expect(parts).toContainEqual({
+      type: "tool-call",
+      toolCallId: "tc_0_read",
+      toolName: "read",
+      input:
+        '{"filePath":"/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml","limit":30,"offset":1050}',
+    });
+  });
+
+  it("extracts trailing Nemotron tool_call block from a full long-form response in doGenerate", async () => {
+    const fullResponse = `The user wants to add Ollama Cloud models to the config with the ollama-cloud/ prefix. They've provided a list of models that should be added.
+
+So the model_name should NOT include cloud or -cloud postfix, while the provider model string can keep the cloud suffix.
+
+Let me read the end of the model list to find the insertion point.
+<tool_call>
+<function=read>
+<parameter=filePath>
+/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml
+</parameter>
+<parameter=limit>
+30
+</parameter>
+<parameter=offset>
+1050
+</parameter>
+</function>
+</tool_call>`;
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: fullResponse }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+    });
+
+    expect(result.finishReason.unified).toBe("tool-calls");
+    expect(result.content).toContainEqual({
+      type: "tool-call",
+      toolCallId: "tc_0_read",
+      toolName: "read",
+      input:
+        '{"filePath":"/home/buck/Projects/homelab/argocd-apps/apps/ai-tools/litellm/litellm.yaml","limit":30,"offset":1050}',
+    });
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: "text",
+      }),
+    );
+  });
+
+  it("nudges model when fallback-parsed tool name is not in registered tools during doGenerate", async () => {
+    const payload = `<tool_call>
+<function=read>
+<parameter=filePath>
+/tmp/demo.txt
+</parameter>
+</function>
+</tool_call>`;
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: payload }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+
+    expect(result.finishReason.unified).toBe("stop");
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content).toContainEqual({
+      type: "text",
+      text:
+        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+    });
+  });
+
+  it("keeps valid tool calls and emits nudge for invalid tool names in doGenerate", async () => {
+    const payload = `<tool_call>{"name":"search","arguments":{"query":"ok"}}</tool_call>
+<tool_call>{"name":"read","arguments":{"filePath":"/tmp/demo.txt"}}</tool_call>`;
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: payload }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "search",
+          inputSchema: {
+            type: "object",
+            properties: { query: { type: "string" } },
+          },
+        },
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+
+    expect(result.finishReason.unified).toBe("tool-calls");
+    expect(result.content).toContainEqual({
+      type: "tool-call",
+      toolCallId: "tc_0_search",
+      toolName: "search",
+      input: '{"query":"ok"}',
+    });
+    expect(result.content).toContainEqual({
+      type: "text",
+      text:
+        "Invalid tool name: read. Available tools: search, read_file. Retry using one of the available tool names.",
+    });
+  });
+
+  it("nudges model when fallback-parsed tool name is invalid during doStream", async () => {
+    const payload = `<tool_call>
+<function=read>
+<parameter=filePath>
+/tmp/demo.txt
+</parameter>
+</function>
+</tool_call>`;
+
+    const model = createModel({
+      streamParts: [
+        { type: "stream-start", warnings: [] },
+        { type: "text-start", id: "txt-0" },
+        { type: "text-delta", id: "txt-0", delta: payload },
+        { type: "text-end", id: "txt-0" },
+        { type: "finish", finishReason: createFinishReason("stop"), usage },
+      ],
+    });
+
+    const result = await model.doStream({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+    const parts = await readStreamParts(result.stream);
+
+    expect(parts.some((part) => part.type === "tool-call")).toBe(false);
+    expect(parts).toContainEqual({
+      type: "text-delta",
+      id: "txt-0",
+      delta:
+        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+    });
+
+    const finish = parts.find((part) => part.type === "finish");
+    expect(finish).toMatchObject({
+      type: "finish",
+      finishReason: { unified: "stop" },
+    });
+  });
+
+  it("nudges invalid tool names for function name XML syntax in doGenerate", async () => {
+    const payload =
+      '<function name="read">{"filePath":"/tmp/demo.txt"}</function>';
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: payload }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content).toContainEqual({
+      type: "text",
+      text:
+        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+    });
+  });
+
+  it("nudges invalid tool names for fenced-json syntax in doGenerate", async () => {
+    const payload = '```json\n{"name":"read","arguments":{"filePath":"/tmp/demo.txt"}}\n```';
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: payload }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content).toContainEqual({
+      type: "text",
+      text:
+        "Invalid tool name: read. Available tools: read_file. Retry using one of the available tool names.",
+    });
+  });
+
+  it("uses plural nudge message for multiple invalid tool names", async () => {
+    const payload = `<tool_call>{"name":"read","arguments":{"filePath":"/tmp/a.txt"}}</tool_call>
+<tool_call>{"name":"write","arguments":{"filePath":"/tmp/a.txt","content":"x"}}</tool_call>`;
+
+    const model = createModel({
+      generateResult: {
+        content: [{ type: "text", text: payload }],
+        finishReason: createFinishReason("stop"),
+        usage,
+        warnings: [],
+      },
+    });
+
+    const result = await model.doGenerate({
+      prompt: [],
+      headers: undefined,
+      abortSignal: undefined,
+      tools: [
+        {
+          type: "function",
+          name: "read_file",
+          inputSchema: {
+            type: "object",
+            properties: { filePath: { type: "string" } },
+          },
+        },
+      ],
+    });
+
+    expect(result.content.some((part) => part.type === "tool-call")).toBe(false);
+    expect(result.content).toContainEqual({
+      type: "text",
+      text:
+        "Invalid tool names: read, write. Available tools: read_file. Retry using one of the available tool names.",
+    });
   });
 });
