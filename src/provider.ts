@@ -9,8 +9,8 @@ import type {
   OpenAICompatibleProviderSettings,
   OpenAICompatibleProvider,
 } from "@ai-sdk/openai-compatible";
-import { FeatherlessCompatibleChatLanguageModel } from "./model";
-import type { FeatherlessCompatibleToolCallFallbackMode } from "./tool-call-parser";
+import { FeatherlessCompatibleChatLanguageModel } from "./model.js";
+import type { FeatherlessCompatibleToolCallFallbackMode } from "./tool-call-parser.js";
 
 export interface FeatherlessCompatibleProviderSettings extends OpenAICompatibleProviderSettings {
   /**

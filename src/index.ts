@@ -2,9 +2,9 @@ export {
   createFeatherlessCompatibleProvider,
   type FeatherlessCompatibleProviderSettings,
   type FeatherlessCompatibleProvider,
-} from "./provider";
+} from "./provider.js";
 
-export { FeatherlessCompatibleChatLanguageModel } from "./model";
+export { FeatherlessCompatibleChatLanguageModel } from "./model.js";
 
 export {
   detectAndParseToolCalls,
@@ -16,6 +16,6 @@ export {
   type ToolCallDetection,
   type FeatherlessCompatibleToolCallFormat,
   type FeatherlessCompatibleToolCallFallbackMode,
-} from "./tool-call-parser";
+} from "./tool-call-parser.js";
 
-export { ToolCallFallbackTransformStream } from "./stream";
+export { ToolCallFallbackTransformStream } from "./stream.js";

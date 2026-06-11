@@ -48,5 +48,8 @@ jobs:
       - name: Build package
         run: npm run build
 
+      - name: Verify package entrypoint
+        run: node --input-type=module -e "await import('./dist/index.js')"
+
       - name: Verify npm pack output
         run: npm pack --dry-run

@@ -4,7 +4,7 @@ import {
   detectAndParseToolCalls,
   type FeatherlessCompatibleToolCallFallbackMode,
   type ToolSchemaMap,
-} from "./tool-call-parser";
+} from "./tool-call-parser.js";
 
 /**
  * A TransformStream that wraps the text stream from an OpenAI-compatible model

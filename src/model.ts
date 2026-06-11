@@ -15,8 +15,8 @@ import {
   coerceParsedToolCalls,
   detectAndParseToolCalls,
   type FeatherlessCompatibleToolCallFallbackMode,
-} from "./tool-call-parser";
-import { ToolCallFallbackTransformStream } from "./stream";
+} from "./tool-call-parser.js";
+import { ToolCallFallbackTransformStream } from "./stream.js";
 
 /**
  * A LanguageModelV3 that wraps an OpenAI-compatible model with
